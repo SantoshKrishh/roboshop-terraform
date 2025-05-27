@@ -6,12 +6,33 @@ data "aws_ami" "test" {
 
 resource "aws_instance" "web" {
   ami           = data.aws_ami.test.id
-  instance_type = "t3.micro"
+  instance_type = "t3.small"
   vpc_security_group_ids = [aws_security_group.sg.id]
   availability_zone = "us-east-1a"
   tags = {
     Name = var.name
   }
+   provisioner "remote-exec" {
+
+    connection {
+        type        = "ssh"
+        user        = "centos"
+        password    = "DevOps321"
+        host        = self.public_ip
+    }
+    inline = [ 
+        "sudo labauto ansible",
+        "ansible-pull -i localhost, -U https://github.com/SantoshKrishh/roboshop-ansible.git roboshop.yml -e env=dev -e role_name=${var.name}"
+    ]
+  }
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = "Z0453228J48T2VKP1YKM"
+  name    = "${var.name}.roboshopsk.shop"
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.web.private_ip]
 }
 
 resource "aws_security_group" "sg" {
@@ -20,19 +41,17 @@ resource "aws_security_group" "sg" {
 
 
   ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22        
-    protocol    = "tcp"
+    from_port   = 0
+    to_port     = 0        
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
+    
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
   }
 
   tags = {
@@ -42,3 +61,5 @@ resource "aws_security_group" "sg" {
 
 variable "name" {  
 }
+
+
